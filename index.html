@@ -1,0 +1,564 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Barrinha Reels</title>
+<style>
+  :root{
+    --bg:#0f1115; --painel:#171a21; --linha:#262b36; --txt:#e7e9ee; --fraco:#9aa3b2;
+    --acento:#4da3ff; --ok:#3ddc97; --erro:#ff6b6b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);font:14px/1.45 system-ui,Segoe UI,Roboto,sans-serif}
+  header{padding:14px 20px;border-bottom:1px solid var(--linha);display:flex;align-items:baseline;gap:12px}
+  header h1{font-size:16px;margin:0;font-weight:650}
+  header span{color:var(--fraco);font-size:12px}
+  main{display:grid;grid-template-columns:minmax(280px,1fr) 380px;gap:20px;padding:20px;align-items:start}
+  @media (max-width:900px){main{grid-template-columns:1fr}}
+
+  .palco{background:var(--painel);border:1px solid var(--linha);border-radius:10px;padding:14px;display:flex;flex-direction:column;align-items:center;gap:10px}
+  #tela{
+    max-width:100%;max-height:68vh;border-radius:6px;
+    background-color:#2a2f3a;
+    background-image:
+      linear-gradient(45deg,#232833 25%,transparent 25%),
+      linear-gradient(-45deg,#232833 25%,transparent 25%),
+      linear-gradient(45deg,transparent 75%,#232833 75%),
+      linear-gradient(-45deg,transparent 75%,#232833 75%);
+    background-size:20px 20px;
+    background-position:0 0,0 10px,10px -10px,-10px 0;
+  }
+  .transporte{display:flex;align-items:center;gap:10px;width:100%}
+  .transporte input[type=range]{flex:1}
+  .painel{background:var(--painel);border:1px solid var(--linha);border-radius:10px;padding:14px}
+  .painel h2{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--fraco);margin:0 0 10px}
+  .painel + .painel{margin-top:14px}
+  label{display:block;font-size:12px;color:var(--fraco);margin-bottom:3px}
+  input[type=text],input[type=number],input[type=color],select{
+    width:100%;background:#0d1016;border:1px solid var(--linha);color:var(--txt);
+    border-radius:6px;padding:7px 8px;font:inherit
+  }
+  input[type=color]{padding:2px;height:34px}
+  .grade{display:grid;grid-template-columns:1fr 1fr;gap:8px 10px}
+  .grade.tres{grid-template-columns:1fr 1fr 1fr}
+  .linha-check{display:flex;align-items:center;gap:8px;margin:10px 0 8px}
+  button{
+    background:var(--acento);color:#06121f;border:0;border-radius:7px;padding:10px 12px;
+    font:inherit;font-weight:650;cursor:pointer;width:100%
+  }
+  button.secundario{background:#222836;color:var(--txt)}
+  button:disabled{opacity:.5;cursor:default}
+  .botoes{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+  .solta{
+    border:1.5px dashed var(--linha);border-radius:8px;padding:16px;text-align:center;
+    color:var(--fraco);cursor:pointer
+  }
+  .solta.ativo{border-color:var(--acento);color:var(--txt)}
+  .status{margin-top:10px;font-size:12px;color:var(--fraco);min-height:18px}
+  .status.ok{color:var(--ok)} .status.erro{color:var(--erro)}
+  progress{width:100%;height:8px;margin-top:8px}
+  .dica{font-size:11px;color:var(--fraco);margin-top:8px;line-height:1.4}
+  code{background:#0d1016;padding:1px 4px;border-radius:4px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Barrinha Reels</h1>
+  <span>solte a animação em alpha · digite a duração · baixe o overlay</span>
+</header>
+
+<main>
+  <section class="palco">
+    <canvas id="tela" width="1080" height="1920"></canvas>
+    <div class="transporte">
+      <button id="btPlay" class="secundario" style="width:auto;padding:6px 14px">▶</button>
+      <input id="scrub" type="range" min="0" max="1000" value="0">
+      <span id="relogio" style="font-variant-numeric:tabular-nums;color:var(--fraco);min-width:76px;text-align:right">0.0s / 0.0s</span>
+    </div>
+  </section>
+
+  <section>
+    <div class="painel">
+      <h2>1 · Animação</h2>
+      <select id="catalogo"><option value="">carregando…</option></select>
+      <div class="solta" id="solta" hidden>
+        Clique ou arraste aqui<br>
+        <small>sequência PNG com alpha (vários arquivos), ou WebP/GIF</small>
+      </div>
+      <input id="arquivos" type="file" accept="image/png,image/webp,image/gif" multiple hidden>
+      <div class="status" id="statusArquivos">Nenhum quadro carregado.</div>
+      <div style="margin-top:8px">
+        <label>Velocidade da animação (quadros por segundo)</label>
+        <input id="fpsAnim" type="number" min="1" max="60" value="12">
+      </div>
+    </div>
+
+    <div class="painel">
+      <h2>2 · Duração do vídeo</h2>
+      <input id="duracao" type="text" value="0:30" placeholder="1:30 ou 90">
+      <div class="dica">Só isso muda entre um vídeo e outro. O percurso se ajusta sozinho.</div>
+    </div>
+
+    <div class="painel">
+      <h2>3 · Ajustes <span style="text-transform:none;font-weight:400">(uma vez só)</span></h2>
+      <div class="grade tres">
+        <div><label>Largura</label><input id="larg" type="number" value="1080"></div>
+        <div><label>Altura</label><input id="alt" type="number" value="1920"></div>
+        <div><label>FPS do vídeo</label><input id="fpsVideo" type="number" value="30"></div>
+      </div>
+      <div class="grade tres" style="margin-top:8px">
+        <div><label>X início</label><input id="x0" type="number" value="90"></div>
+        <div><label>X fim</label><input id="x1" type="number" value="990"></div>
+        <div><label>Altura Y</label><input id="y" type="number" value="1700"></div>
+      </div>
+      <div class="grade" style="margin-top:8px">
+        <div><label>Escala %</label><input id="escala" type="number" value="100"></div>
+        <div><label>Folga nas pontas (s)</label><input id="folga" type="number" value="0" step="0.1"></div>
+      </div>
+
+      <div class="linha-check">
+        <input id="temBarra" type="checkbox">
+        <label for="temBarra" style="margin:0">Desenhar a barra de progresso</label>
+      </div>
+      <div class="grade tres">
+        <div><label>Cor</label><input id="barraCor" type="color" value="#ffffff"></div>
+        <div><label>Espessura</label><input id="barraAlt" type="number" value="6"></div>
+        <div><label>Y da barra</label><input id="barraY" type="number" value="1740"></div>
+      </div>
+      <div class="linha-check">
+        <input id="temTrilho" type="checkbox" checked>
+        <label for="temTrilho" style="margin:0">Trilho de fundo (30%)</label>
+      </div>
+    </div>
+
+    <div class="painel">
+      <h2>4 · Baixar</h2>
+      <div class="botoes">
+        <button id="btWebm">Gravar WebM com alpha</button>
+        <button id="btPng" class="secundario">Baixar sequência PNG (.zip)</button>
+      </div>
+      <progress id="prog" value="0" max="100" hidden></progress>
+      <div class="status" id="status"></div>
+      <div class="dica">
+        <b>WebM com alpha</b> grava em tempo real — 30&nbsp;s de vídeo levam 30&nbsp;s. Não troque de aba durante a gravação.<br>
+        <b>Sequência PNG</b> é o formato universal de overlay (importa em qualquer editor), mas pesa: ~1&nbsp;MB por quadro.
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+"use strict";
+
+const $ = id => document.getElementById(id);
+const tela = $("tela"), ctx = tela.getContext("2d");
+
+let quadros = [];        // ImageBitmap dos desenhos do personagem
+let tocando = false, t0 = 0, tAtual = 0, rafId = 0;
+let ocupado = false;
+
+/* ---------- configuração ---------- */
+
+const CAMPOS = ["fpsAnim","duracao","larg","alt","fpsVideo","x0","x1","y","escala","folga",
+                "temBarra","barraCor","barraAlt","barraY","temTrilho"];
+
+function lerDuracao(txt){
+  txt = String(txt || "").trim().toLowerCase().replace(/s$/,"").replace(",",".");
+  if (!txt) return 0;
+  let seg = 0;
+  if (txt.includes(":")) {
+    for (const p of txt.split(":")) {
+      if (p === "" || isNaN(Number(p))) return 0;
+      seg = seg * 60 + Number(p);
+    }
+  } else {
+    if (isNaN(Number(txt))) return 0;
+    seg = Number(txt);
+  }
+  return seg > 0 && seg <= 3600 ? seg : 0;
+}
+
+function cfg(){
+  const n = id => Number($(id).value) || 0;
+  return {
+    dur: lerDuracao($("duracao").value),
+    W: Math.max(2, n("larg")), H: Math.max(2, n("alt")),
+    fpsVideo: Math.min(60, Math.max(1, n("fpsVideo"))),
+    fpsAnim: Math.min(60, Math.max(1, n("fpsAnim"))),
+    x0: n("x0"), x1: n("x1"), y: n("y"),
+    escala: Math.max(1, n("escala")) / 100,
+    folga: Math.max(0, n("folga")),
+    barra: $("temBarra").checked,
+    barraCor: $("barraCor").value,
+    barraAlt: Math.max(1, n("barraAlt")),
+    barraY: n("barraY"),
+    trilho: $("temTrilho").checked
+  };
+}
+
+function salvar(){
+  const dados = {};
+  for (const id of CAMPOS) {
+    const el = $(id);
+    dados[id] = el.type === "checkbox" ? el.checked : el.value;
+  }
+  try { localStorage.setItem("barrinha-reels", JSON.stringify(dados)); } catch (e) {}
+}
+
+function restaurar(){
+  let dados;
+  try { dados = JSON.parse(localStorage.getItem("barrinha-reels") || "null"); } catch (e) { return; }
+  if (!dados) return;
+  for (const id of CAMPOS) {
+    if (!(id in dados)) continue;
+    const el = $(id);
+    if (el.type === "checkbox") el.checked = !!dados[id]; else el.value = dados[id];
+  }
+}
+
+/* ---------- desenho ---------- */
+
+function progresso(t, c){
+  const ini = c.folga, fim = c.dur - c.folga;
+  if (fim <= ini) return 0;
+  return Math.min(1, Math.max(0, (t - ini) / (fim - ini)));
+}
+
+function desenhar(destino, t, c){
+  const d = destino.getContext("2d");
+  d.clearRect(0, 0, c.W, c.H);
+  const p = progresso(t, c);
+
+  if (c.barra) {
+    const largura = c.x1 - c.x0, r = c.barraAlt / 2;
+    if (c.trilho) {
+      d.globalAlpha = 0.3;
+      d.fillStyle = c.barraCor;
+      d.beginPath(); d.roundRect(c.x0, c.barraY, largura, c.barraAlt, r); d.fill();
+      d.globalAlpha = 1;
+    }
+    if (largura * p >= 1) {
+      d.fillStyle = c.barraCor;
+      d.beginPath(); d.roundRect(c.x0, c.barraY, Math.max(c.barraAlt, largura * p), c.barraAlt, r); d.fill();
+    }
+  }
+
+  if (quadros.length) {
+    const img = quadros[Math.floor(t * c.fpsAnim) % quadros.length];
+    const w = img.width * c.escala, h = img.height * c.escala;
+    d.drawImage(img, c.x0 + (c.x1 - c.x0) * p - w / 2, c.y - h / 2, w, h);
+  }
+}
+
+function redesenhar(){
+  const c = cfg();
+  if (tela.width !== c.W || tela.height !== c.H) { tela.width = c.W; tela.height = c.H; }
+  desenhar(tela, tAtual, c);
+  $("relogio").textContent = tAtual.toFixed(1) + "s / " + c.dur.toFixed(1) + "s";
+  if (!tocando) $("scrub").value = c.dur ? Math.round(tAtual / c.dur * 1000) : 0;
+}
+
+function laco(agora){
+  const c = cfg();
+  if (!c.dur) { tocando = false; $("btPlay").textContent = "▶"; return; }
+  tAtual = ((agora - t0) / 1000) % c.dur;
+  redesenhar();
+  $("scrub").value = Math.round(tAtual / c.dur * 1000);
+  if (tocando) rafId = requestAnimationFrame(laco);
+}
+
+function tocar(ligar){
+  tocando = ligar;
+  $("btPlay").textContent = ligar ? "❚❚" : "▶";
+  if (ligar) { t0 = performance.now() - tAtual * 1000; rafId = requestAnimationFrame(laco); }
+  else cancelAnimationFrame(rafId);
+}
+
+/* ---------- carregar quadros ---------- */
+
+async function carregar(lista){
+  const arquivos = [...lista].filter(f => f.type.startsWith("image/"));
+  if (!arquivos.length) { aviso("statusArquivos", "Nenhuma imagem reconhecida.", "erro"); return; }
+  arquivos.sort((a, b) => a.name.localeCompare(b.name, undefined, {numeric: true}));
+  try {
+    quadros = await Promise.all(arquivos.map(f => createImageBitmap(f)));
+  } catch (e) {
+    aviso("statusArquivos", "Falhou ao ler as imagens: " + e.message, "erro"); return;
+  }
+  aviso("statusArquivos",
+        quadros.length + " quadro(s) · " + quadros[0].width + "×" + quadros[0].height + " px", "ok");
+  redesenhar();
+}
+
+function aviso(id, msg, tipo){
+  const el = $(id);
+  el.textContent = msg;
+  el.className = "status" + (tipo ? " " + tipo : "");
+}
+
+/* ---------- catálogo de animações já prontas ---------- */
+
+let CATALOGO = [];
+
+async function lerCatalogo(){
+  const sel = $("catalogo");
+  try {
+    const r = await fetch("animacoes/catalogo.json", {cache: "no-cache"});
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    CATALOGO = (await r.json()).animacoes || [];
+  } catch (e) {
+    CATALOGO = [];
+  }
+  sel.innerHTML = "";
+  for (const a of CATALOGO) {
+    const op = document.createElement("option");
+    op.value = a.id; op.textContent = a.nome;
+    sel.appendChild(op);
+  }
+  const op = document.createElement("option");
+  op.value = "__enviar__";
+  op.textContent = CATALOGO.length ? "Enviar meus arquivos…" : "Enviar meus arquivos (nenhuma animação publicada)";
+  sel.appendChild(op);
+
+  const salvo = localStorage.getItem("barrinha-animacao");
+  if (salvo && CATALOGO.some(a => a.id === salvo)) sel.value = salvo;
+  await trocarAnimacao();
+}
+
+async function trocarAnimacao(){
+  const sel = $("catalogo");
+  const enviar = sel.value === "__enviar__";
+  $("solta").hidden = !enviar;
+  if (enviar) {
+    quadros = [];
+    aviso("statusArquivos", "Escolha os quadros no seu computador.");
+    redesenhar();
+    return;
+  }
+  try { localStorage.setItem("barrinha-animacao", sel.value); } catch (e) {}
+
+  const item = CATALOGO.find(a => a.id === sel.value);
+  if (!item) { aviso("statusArquivos", "Nenhuma animação publicada ainda.", "erro"); return; }
+
+  aviso("statusArquivos", "Carregando " + item.nome + "…");
+  try {
+    quadros = await Promise.all(item.quadros.map(async nome => {
+      const r = await fetch(item.pasta + "/" + nome, {cache: "force-cache"});
+      if (!r.ok) throw new Error(nome + ": HTTP " + r.status);
+      return createImageBitmap(await r.blob());
+    }));
+  } catch (e) {
+    quadros = [];
+    aviso("statusArquivos", "Falhou ao carregar: " + e.message, "erro");
+    return;
+  }
+
+  // valores que vêm prontos com a animação
+  if (item.padroes) {
+    for (const [campo, valor] of Object.entries(item.padroes)) {
+      const el = $(campo);
+      if (!el) continue;
+      if (el.type === "checkbox") el.checked = !!valor; else el.value = valor;
+    }
+    salvar();
+  }
+
+  aviso("statusArquivos",
+        quadros.length + " quadro(s) · " + quadros[0].width + "×" + quadros[0].height + " px", "ok");
+  redesenhar();
+}
+
+/* ---------- exportar: WebM com alpha ---------- */
+
+function mimeSuportado(){
+  for (const m of ["video/webm;codecs=vp9", "video/webm;codecs=vp8"]) {
+    if (window.MediaRecorder && MediaRecorder.isTypeSupported(m)) return m;
+  }
+  return null;
+}
+
+async function gravarWebm(){
+  const c = cfg();
+  if (!validar(c)) return;
+  const mime = mimeSuportado();
+  if (!mime) { aviso("status", "Este navegador não grava WebM. Use o Chrome.", "erro"); return; }
+
+  travar(true);
+  tocar(false);
+  const fora = document.createElement("canvas");
+  fora.width = c.W; fora.height = c.H;
+  const fluxo = fora.captureStream(0);
+  const faixa = fluxo.getVideoTracks()[0];
+  const gravador = new MediaRecorder(fluxo, {mimeType: mime, videoBitsPerSecond: 12_000_000});
+  const pedacos = [];
+  gravador.ondataavailable = e => { if (e.data.size) pedacos.push(e.data); };
+  const fim = new Promise(r => gravador.onstop = r);
+
+  // cadencia fixa no FPS escolhido; o tempo do quadro vem do relogio,
+  // entao um engasgo do navegador nao desalinha a animacao.
+  const inicio = performance.now();
+  let escondeu = false;
+  const olhoAba = () => { if (document.hidden) escondeu = true; };
+  document.addEventListener("visibilitychange", olhoAba);
+  gravador.start();
+  await new Promise(resolve => {
+    const timer = setInterval(() => {
+      const t = (performance.now() - inicio) / 1000;
+      if (t >= c.dur) { clearInterval(timer); resolve(); return; }
+      desenhar(fora, t, c);
+      if (faixa.requestFrame) faixa.requestFrame();
+      tAtual = t; redesenhar();
+      $("prog").value = t / c.dur * 100;
+      aviso("status", "Gravando… " + t.toFixed(1) + "s de " + c.dur.toFixed(1) + "s");
+    }, 1000 / c.fpsVideo);
+  });
+  document.removeEventListener("visibilitychange", olhoAba);
+  gravador.stop();
+  await fim;
+  faixa.stop();
+
+  baixar(new Blob(pedacos, {type: mime}), nomeArquivo(c) + ".webm");
+  aviso("status", escondeu
+    ? "Baixado, mas a aba saiu de foco durante a gravação — confira o arquivo e, se estiver travado, grave de novo sem trocar de aba."
+    : "Pronto — WebM com alpha baixado.", escondeu ? "erro" : "ok");
+  travar(false);
+}
+
+/* ---------- exportar: sequência PNG em .zip ---------- */
+
+async function baixarPngs(){
+  const c = cfg();
+  if (!validar(c)) return;
+  const total = Math.round(c.dur * c.fpsVideo);
+  if (total > 300 && !confirm(total + " quadros PNG (~" + Math.round(total * 0.8) +
+      " MB). Pode demorar e pesar bastante. Continuar?")) return;
+
+  travar(true);
+  tocar(false);
+  const fora = document.createElement("canvas");
+  fora.width = c.W; fora.height = c.H;
+  const arquivos = [];
+  for (let f = 0; f < total; f++) {
+    desenhar(fora, f / c.fpsVideo, c);
+    const blob = await new Promise(r => fora.toBlob(r, "image/png"));
+    arquivos.push({nome: "quadro_" + String(f).padStart(5, "0") + ".png",
+                   dados: new Uint8Array(await blob.arrayBuffer())});
+    $("prog").value = (f + 1) / total * 100;
+    aviso("status", "Gerando quadros… " + (f + 1) + "/" + total);
+    if (f % 5 === 0) await new Promise(r => setTimeout(r, 0));
+  }
+  aviso("status", "Empacotando…");
+  baixar(new Blob([zip(arquivos)], {type: "application/zip"}), nomeArquivo(c) + "_png.zip");
+  aviso("status", "Pronto — " + total + " quadros baixados.", "ok");
+  travar(false);
+}
+
+/* ZIP sem compressão (os PNGs já vêm comprimidos). */
+function zip(arquivos){
+  const tabelaCrc = (() => {
+    const t = new Uint32Array(256);
+    for (let n = 0; n < 256; n++) {
+      let c = n;
+      for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+      t[n] = c >>> 0;
+    }
+    return t;
+  })();
+  const crc32 = dados => {
+    let c = 0xFFFFFFFF;
+    for (let i = 0; i < dados.length; i++) c = tabelaCrc[(c ^ dados[i]) & 0xFF] ^ (c >>> 8);
+    return (c ^ 0xFFFFFFFF) >>> 0;
+  };
+
+  const enc = new TextEncoder();
+  const locais = [], central = [];
+  let deslocamento = 0;
+
+  for (const a of arquivos) {
+    const nome = enc.encode(a.nome), crc = crc32(a.dados), tam = a.dados.length;
+
+    const cab = new DataView(new ArrayBuffer(30));
+    cab.setUint32(0, 0x04034b50, true); cab.setUint16(4, 20, true);
+    cab.setUint16(8, 0, true); cab.setUint16(10, 0, true); cab.setUint16(12, 0, true);
+    cab.setUint32(14, crc, true); cab.setUint32(18, tam, true); cab.setUint32(22, tam, true);
+    cab.setUint16(26, nome.length, true); cab.setUint16(28, 0, true);
+    locais.push(new Uint8Array(cab.buffer), nome, a.dados);
+
+    const cen = new DataView(new ArrayBuffer(46));
+    cen.setUint32(0, 0x02014b50, true); cen.setUint16(4, 20, true); cen.setUint16(6, 20, true);
+    cen.setUint32(16, crc, true); cen.setUint32(20, tam, true); cen.setUint32(24, tam, true);
+    cen.setUint16(28, nome.length, true); cen.setUint32(42, deslocamento, true);
+    central.push(new Uint8Array(cen.buffer), nome);
+
+    deslocamento += 30 + nome.length + tam;
+  }
+
+  const tamCentral = central.reduce((s, p) => s + p.length, 0);
+  const fim = new DataView(new ArrayBuffer(22));
+  fim.setUint32(0, 0x06054b50, true);
+  fim.setUint16(8, arquivos.length, true); fim.setUint16(10, arquivos.length, true);
+  fim.setUint32(12, tamCentral, true); fim.setUint32(16, deslocamento, true);
+
+  return new Blob([...locais, ...central, new Uint8Array(fim.buffer)]);
+}
+
+/* ---------- utilidades ---------- */
+
+function nomeArquivo(c){
+  const m = Math.floor(c.dur / 60), s = Math.round(c.dur % 60);
+  return "barrinha_" + (m ? m + "m" + String(s).padStart(2, "0") + "s" : s + "s");
+}
+
+function baixar(blob, nome){
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = nome; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 30_000);
+}
+
+function validar(c){
+  if (!c.dur) { aviso("status", "Digite a duração (ex.: 0:30).", "erro"); return false; }
+  if (!quadros.length && !c.barra) { aviso("status", "Carregue a animação ou ligue a barra.", "erro"); return false; }
+  return true;
+}
+
+function travar(sim){
+  ocupado = sim;
+  $("btWebm").disabled = sim; $("btPng").disabled = sim;
+  $("prog").hidden = !sim; $("prog").value = 0;
+}
+
+/* ---------- ligações ---------- */
+
+$("solta").onclick = () => $("arquivos").click();
+$("arquivos").onchange = e => carregar(e.target.files);
+["dragenter","dragover"].forEach(ev => $("solta").addEventListener(ev, e => {
+  e.preventDefault(); $("solta").classList.add("ativo");
+}));
+["dragleave","drop"].forEach(ev => $("solta").addEventListener(ev, e => {
+  e.preventDefault(); $("solta").classList.remove("ativo");
+}));
+$("solta").addEventListener("drop", e => carregar(e.dataTransfer.files));
+
+$("btPlay").onclick = () => tocar(!tocando);
+$("scrub").oninput = e => {
+  tocar(false);
+  tAtual = cfg().dur * (e.target.value / 1000);
+  redesenhar();
+};
+$("btWebm").onclick = () => gravarWebm().catch(e => { aviso("status", "Erro: " + e.message, "erro"); travar(false); });
+$("btPng").onclick = () => baixarPngs().catch(e => { aviso("status", "Erro: " + e.message, "erro"); travar(false); });
+
+for (const id of CAMPOS) {
+  $(id).addEventListener("input", () => { if (!ocupado) { salvar(); redesenhar(); } });
+}
+
+$("catalogo").onchange = () => trocarAnimacao();
+
+restaurar();
+redesenhar();
+lerCatalogo();
+</script>
+</body>
+</html>
