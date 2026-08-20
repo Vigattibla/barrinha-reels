@@ -102,7 +102,14 @@
 
     <div class="painel">
       <h2>3 · Ajustes <span style="text-transform:none;font-weight:400">(uma vez só)</span></h2>
-      <div class="grade tres">
+      <label>Formato</label>
+      <select id="formato">
+        <option value="1080x1920">1080 × 1920 — Reels / Stories (9:16)</option>
+        <option value="1080x1350">1080 × 1350 — Feed vertical (4:5)</option>
+        <option value="1350x1080">1350 × 1080 — Horizontal (5:4)</option>
+        <option value="">Personalizado</option>
+      </select>
+      <div class="grade tres" style="margin-top:8px">
         <div><label>Largura</label><input id="larg" type="number" value="1080"></div>
         <div><label>Altura</label><input id="alt" type="number" value="1920"></div>
         <div><label>FPS do vídeo</label><input id="fpsVideo" type="number" value="30"></div>
@@ -134,15 +141,22 @@
 
     <div class="painel">
       <h2>4 · Baixar</h2>
+      <label>Fundo do vídeo</label>
+      <select id="fundo">
+        <option value="#00B140">Verde chroma — MP4 (CapCut)</option>
+        <option value="#FF00FF">Magenta chroma — MP4 (se houver verde no desenho)</option>
+        <option value="alpha">Transparente — WebM (Premiere, After Effects)</option>
+      </select>
       <div class="botoes">
-        <button id="btWebm">Gravar WebM com alpha</button>
+        <button id="btWebm">Gravar vídeo</button>
         <button id="btPng" class="secundario">Baixar sequência PNG (.zip)</button>
       </div>
       <progress id="prog" value="0" max="100" hidden></progress>
       <div class="status" id="status"></div>
+      <div class="dica" id="dicaFundo"></div>
       <div class="dica">
-        <b>WebM com alpha</b> grava em tempo real — 30&nbsp;s de vídeo levam 30&nbsp;s. Não troque de aba durante a gravação.<br>
-        <b>Sequência PNG</b> é o formato universal de overlay (importa em qualquer editor), mas pesa: ~1&nbsp;MB por quadro.
+        A gravação é em tempo real — 30&nbsp;s de vídeo levam 30&nbsp;s. Não troque de aba durante a gravação.<br>
+        <b>Sequência PNG</b> importa em qualquer editor, mas pesa: ~1&nbsp;MB por quadro.
       </div>
     </div>
   </section>
@@ -161,7 +175,7 @@ let ocupado = false;
 /* ---------- configuração ---------- */
 
 const CAMPOS = ["fpsAnim","duracao","larg","alt","fpsVideo","x0","x1","y","escala","folga",
-                "temBarra","barraCor","barraAlt","barraY","temTrilho"];
+                "temBarra","barraCor","barraAlt","barraY","temTrilho","fundo"];
 
 function lerDuracao(txt){
   txt = String(txt || "").trim().toLowerCase().replace(/s$/,"").replace(",",".");
@@ -193,7 +207,8 @@ function cfg(){
     barraCor: $("barraCor").value,
     barraAlt: Math.max(1, n("barraAlt")),
     barraY: n("barraY"),
-    trilho: $("temTrilho").checked
+    trilho: $("temTrilho").checked,
+    fundo: $("fundo").value
   };
 }
 
@@ -228,6 +243,7 @@ function progresso(t, c){
 function desenhar(destino, t, c){
   const d = destino.getContext("2d");
   d.clearRect(0, 0, c.W, c.H);
+  if (c.fundo !== "alpha") { d.fillStyle = c.fundo; d.fillRect(0, 0, c.W, c.H); }
   const p = progresso(t, c);
 
   if (c.barra) {
@@ -288,6 +304,7 @@ async function carregar(lista){
   }
   aviso("statusArquivos",
         quadros.length + " quadro(s) · " + quadros[0].width + "×" + quadros[0].height + " px", "ok");
+  sincronizarFormato();
   redesenhar();
 }
 
@@ -371,18 +388,29 @@ async function trocarAnimacao(){
 
 /* ---------- exportar: WebM com alpha ---------- */
 
-function mimeSuportado(){
-  for (const m of ["video/webm;codecs=vp9", "video/webm;codecs=vp8"]) {
+function mimeSuportado(transparente){
+  // com fundo chroma, MP4/H.264 e o que os editores aceitam sem discutir;
+  // com alpha, so o WebM carrega a transparencia.
+  const lista = transparente
+    ? ["video/webm;codecs=vp9", "video/webm;codecs=vp8"]
+    : ["video/mp4;codecs=avc1.640028", "video/mp4;codecs=avc1.42E01E", "video/mp4",
+       "video/webm;codecs=vp9"];
+  for (const m of lista) {
     if (window.MediaRecorder && MediaRecorder.isTypeSupported(m)) return m;
   }
   return null;
 }
 
+function extensaoDe(mime){
+  return mime.startsWith("video/mp4") ? ".mp4" : ".webm";
+}
+
 async function gravarWebm(){
   const c = cfg();
   if (!validar(c)) return;
-  const mime = mimeSuportado();
-  if (!mime) { aviso("status", "Este navegador não grava WebM. Use o Chrome.", "erro"); return; }
+  const transparente = c.fundo === "alpha";
+  const mime = mimeSuportado(transparente);
+  if (!mime) { aviso("status", "Este navegador não grava vídeo. Use o Chrome.", "erro"); return; }
 
   travar(true);
   tocar(false);
@@ -418,10 +446,11 @@ async function gravarWebm(){
   await fim;
   faixa.stop();
 
-  baixar(new Blob(pedacos, {type: mime}), nomeArquivo(c) + ".webm");
+  baixar(new Blob(pedacos, {type: mime}), nomeArquivo(c) + extensaoDe(mime));
   aviso("status", escondeu
     ? "Baixado, mas a aba saiu de foco durante a gravação — confira o arquivo e, se estiver travado, grave de novo sem trocar de aba."
-    : "Pronto — WebM com alpha baixado.", escondeu ? "erro" : "ok");
+    : "Pronto — " + (transparente ? "WebM com alpha" : "MP4 com fundo chroma") + " baixado.",
+    escondeu ? "erro" : "ok");
   travar(false);
 }
 
@@ -556,7 +585,47 @@ for (const id of CAMPOS) {
 
 $("catalogo").onchange = () => trocarAnimacao();
 
+function sincronizarFormato(){
+  const chave = $("larg").value + "x" + $("alt").value;
+  const sel = $("formato");
+  sel.value = [...sel.options].some(o => o.value === chave) ? chave : "";
+}
+
+function trocarFormato(){
+  const alvo = $("formato").value;
+  if (!alvo) return;
+  const [w, h] = alvo.split("x").map(Number);
+  const c = cfg();
+  // o que importa num overlay e a distancia ate o rodape e ate as laterais,
+  // nao a proporcao — trocar de formato mantem a barrinha no mesmo lugar.
+  const doRodape = c.H - c.y, barraDoRodape = c.H - c.barraY;
+  const margemEsq = c.x0, margemDir = c.W - c.x1;
+  $("larg").value = w;
+  $("alt").value = h;
+  $("y").value = Math.round(h - doRodape);
+  $("barraY").value = Math.round(h - barraDoRodape);
+  $("x0").value = Math.round(margemEsq);
+  $("x1").value = Math.round(w - margemDir);
+  salvar();
+  redesenhar();
+}
+
+function ajustarFundo(){
+  const transparente = $("fundo").value === "alpha";
+  $("btWebm").textContent = transparente ? "Gravar WebM com alpha" : "Gravar MP4 com fundo chroma";
+  $("dicaFundo").innerHTML = transparente
+    ? "<b>Transparente:</b> entra direto no Premiere e no After Effects. "
+      + "O CapCut <b>não</b> lê transparência — nele o fundo aparece preto."
+    : "<b>No CapCut:</b> jogue o vídeo na linha do tempo, abra "
+      + "<code>Recortar &gt; Chroma key</code> e use o conta-gotas no fundo colorido.";
+}
+$("fundo").addEventListener("change", ajustarFundo);
+$("formato").addEventListener("change", trocarFormato);
+for (const id of ["larg", "alt"]) $(id).addEventListener("input", sincronizarFormato);
+
 restaurar();
+ajustarFundo();
+sincronizarFormato();
 redesenhar();
 lerCatalogo();
 </script>
