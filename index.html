@@ -119,6 +119,10 @@
         <div><label>X fim</label><input id="x1" type="number" value="990"></div>
         <div><label>Altura Y</label><input id="y" type="number" value="1700"></div>
       </div>
+      <div class="linha-check">
+        <input id="foraTela" type="checkbox" checked>
+        <label for="foraTela" style="margin:0">Entrar e sair da tela (começa e termina fora)</label>
+      </div>
       <div class="grade" style="margin-top:8px">
         <div><label>Escala %</label><input id="escala" type="number" value="100"></div>
         <div><label>Folga nas pontas (s)</label><input id="folga" type="number" value="0" step="0.1"></div>
@@ -175,7 +179,7 @@ let ocupado = false;
 /* ---------- configuração ---------- */
 
 const CAMPOS = ["fpsAnim","duracao","larg","alt","fpsVideo","x0","x1","y","escala","folga",
-                "temBarra","barraCor","barraAlt","barraY","temTrilho","fundo"];
+                "temBarra","barraCor","barraAlt","barraY","temTrilho","fundo","foraTela"];
 
 function lerDuracao(txt){
   txt = String(txt || "").trim().toLowerCase().replace(/s$/,"").replace(",",".");
@@ -200,7 +204,16 @@ function cfg(){
     W: Math.max(2, n("larg")), H: Math.max(2, n("alt")),
     fpsVideo: Math.min(60, Math.max(1, n("fpsVideo"))),
     fpsAnim: Math.min(60, Math.max(1, n("fpsAnim"))),
-    x0: n("x0"), x1: n("x1"), y: n("y"),
+    ...(function(){
+      const larg = Math.max(2, n("larg"));
+      if (!$("foraTela").checked) return {x0: n("x0"), x1: n("x1")};
+      // meia largura do desenho de cada lado: em t=0 ele esta inteiro fora,
+      // no fim tambem — entra andando e sai andando.
+      const meia = (quadros.length ? quadros[0].width : 0) * (Math.max(1, n("escala")) / 100) / 2;
+      return {x0: Math.round(-meia), x1: Math.round(larg + meia)};
+    })(),
+    barraX0: n("x0"), barraX1: n("x1"),
+    y: n("y"),
     escala: Math.max(1, n("escala")) / 100,
     folga: Math.max(0, n("folga")),
     barra: $("temBarra").checked,
@@ -247,16 +260,17 @@ function desenhar(destino, t, c){
   const p = progresso(t, c);
 
   if (c.barra) {
-    const largura = c.x1 - c.x0, r = c.barraAlt / 2;
+    // a barra vive dentro do quadro mesmo quando o personagem entra e sai da tela
+    const bx = c.barraX0, largura = c.barraX1 - c.barraX0, r = c.barraAlt / 2;
     if (c.trilho) {
       d.globalAlpha = 0.3;
       d.fillStyle = c.barraCor;
-      d.beginPath(); d.roundRect(c.x0, c.barraY, largura, c.barraAlt, r); d.fill();
+      d.beginPath(); d.roundRect(bx, c.barraY, largura, c.barraAlt, r); d.fill();
       d.globalAlpha = 1;
     }
     if (largura * p >= 1) {
       d.fillStyle = c.barraCor;
-      d.beginPath(); d.roundRect(c.x0, c.barraY, Math.max(c.barraAlt, largura * p), c.barraAlt, r); d.fill();
+      d.beginPath(); d.roundRect(bx, c.barraY, Math.max(c.barraAlt, largura * p), c.barraAlt, r); d.fill();
     }
   }
 
@@ -305,6 +319,7 @@ async function carregar(lista){
   aviso("statusArquivos",
         quadros.length + " quadro(s) · " + quadros[0].width + "×" + quadros[0].height + " px", "ok");
   sincronizarFormato();
+  ajustarForaTela();
   redesenhar();
 }
 
@@ -621,10 +636,19 @@ function ajustarFundo(){
 }
 $("fundo").addEventListener("change", ajustarFundo);
 $("formato").addEventListener("change", trocarFormato);
+function ajustarForaTela(){
+  const fora = $("foraTela").checked;
+  for (const id of ["x0", "x1"]) {
+    $(id).disabled = fora;
+    $(id).style.opacity = fora ? .4 : 1;
+  }
+}
+$("foraTela").addEventListener("change", () => { ajustarForaTela(); redesenhar(); });
 for (const id of ["larg", "alt"]) $(id).addEventListener("input", sincronizarFormato);
 
 restaurar();
 ajustarFundo();
+ajustarForaTela();
 sincronizarFormato();
 redesenhar();
 lerCatalogo();
