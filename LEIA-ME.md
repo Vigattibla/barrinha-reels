@@ -38,8 +38,16 @@ preenche sozinho quando alguém escolhe ela na lista.
 
 4. Commit e push. O GitHub Pages republica em ~1 minuto.
 
-A pasta `animacoes/exemplo/` tem 6 quadros de teste — pode apagar quando as
-animações de verdade entrarem.
+O script aceita também o `.mov` direto (ProRes 4444 com alfa), sem precisar
+exportar sequência PNG:
+
+```bash
+python preparar_animacao.py "Animacao Reels Baixo.mov" reels-baixo "Personagens"
+```
+
+Quadros idênticos em sequência são descartados — o site já repete os desenhos
+na velocidade escolhida. Se uma pose precisa durar mais que as outras, passe
+`--manter-repetidos`.
 
 ## Os dois botões
 

@@ -1,24 +1,24 @@
 {
   "animacoes": [
     {
-      "id": "exemplo",
-      "nome": "Exemplo (bloco azul) — trocar pela animação real",
-      "pasta": "animacoes/exemplo",
+      "id": "reels-baixo",
+      "nome": "Personagens (barra de baixo)",
+      "pasta": "animacoes/reels-baixo",
       "quadros": [
-        "andar_00.png",
-        "andar_01.png",
-        "andar_02.png",
-        "andar_03.png",
-        "andar_04.png",
-        "andar_05.png"
+        "quadro_00.png",
+        "quadro_01.png",
+        "quadro_02.png",
+        "quadro_03.png"
       ],
       "padroes": {
         "fpsAnim": 12,
         "escala": 100,
-        "x0": 90,
-        "x1": 990,
-        "y": 1700,
-        "barraY": 1740
+        "larg": 1080,
+        "alt": 1920,
+        "x0": 150,
+        "x1": 930,
+        "y": 1732,
+        "barraY": 1823
       }
     }
   ]
