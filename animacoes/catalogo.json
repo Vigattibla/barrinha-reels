@@ -8,17 +8,19 @@
         "quadro_00.png",
         "quadro_01.png",
         "quadro_02.png",
-        "quadro_03.png"
+        "quadro_03.png",
+        "quadro_04.png",
+        "quadro_05.png"
       ],
       "padroes": {
         "fpsAnim": 12,
         "escala": 100,
         "larg": 1080,
         "alt": 1920,
-        "x0": 150,
-        "x1": 930,
-        "y": 1732,
-        "barraY": 1823
+        "x0": 148,
+        "x1": 932,
+        "y": 1736,
+        "barraY": 1831
       }
     }
   ]
