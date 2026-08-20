@@ -5,8 +5,12 @@
       "nome": "Exemplo (bloco azul) — trocar pela animação real",
       "pasta": "animacoes/exemplo",
       "quadros": [
-        "andar_00.png", "andar_01.png", "andar_02.png",
-        "andar_03.png", "andar_04.png", "andar_05.png"
+        "andar_00.png",
+        "andar_01.png",
+        "andar_02.png",
+        "andar_03.png",
+        "andar_04.png",
+        "andar_05.png"
       ],
       "padroes": {
         "fpsAnim": 12,
